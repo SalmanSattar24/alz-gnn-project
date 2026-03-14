@@ -1,48 +1,266 @@
 """
 Data preprocessing module for Alzheimer's proteomics project.
 
-Handles normalization, batch correction, feature selection, and outlier removal.
+Orchestrates preprocessing of raw proteomics data:
+- Load raw matrices and metadata
+- Quality control (missing value filtering)
+- Imputation (MNAR or kNN)
+- Normalization (log2)
+- Batch correction (optional)
+- Save processed data in HDF5 format
 """
 
 import argparse
 from pathlib import Path
+from typing import Dict
+
+import pandas as pd
 
 from src.config import load_config
+from src.preprocess.proteomics_qc import ProteomicsQC
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def preprocess_data(config_path: str = "config.yaml"):
+def preprocess_ampad_cohorts(
+    raw_dir: Path,
+    processed_dir: Path,
+    impute_method: str = "mnar",
+    batch_correction: bool = True,
+) -> Dict[str, Path]:
     """
-    Preprocess raw proteomics data.
+    Preprocess AMP-AD proteomics cohorts.
+
+    Args:
+        raw_dir: Raw data directory
+        processed_dir: Output directory
+        impute_method: Imputation method (mnar or knn)
+        batch_correction: Whether to apply batch correction
+
+    Returns:
+        Dictionary mapping cohort names to output file paths
+    """
+    qc = ProteomicsQC(random_state=42)
+    output_paths = {}
+
+    cohorts = ["ROSMAP", "MSBB", "MAYO"]
+
+    for cohort in cohorts:
+        cohort_raw_dir = raw_dir / "ampad" / cohort
+        if not cohort_raw_dir.exists():
+            logger.warning(f"Cohort directory not found: {cohort_raw_dir}")
+            continue
+
+        logger.info(f"\nProcessing {cohort} cohort...")
+        logger.info("=" * 60)
+
+        # Find proteomics file
+        proteomics_file = list(cohort_raw_dir.glob("*proteomics*.csv.gz"))
+        metadata_file = list(cohort_raw_dir.glob("*metadata*.csv"))
+
+        if not proteomics_file:
+            logger.warning(f"No proteomics file found in {cohort_raw_dir}")
+            continue
+
+        proteomics_file = proteomics_file[0]
+
+        # Load data
+        logger.info(f"Loading {proteomics_file.name}")
+        proteomics = qc.load_proteomics_matrix(proteomics_file)
+
+        # Load metadata if available
+        metadata = None
+        if metadata_file:
+            metadata_file = metadata_file[0]
+            logger.info(f"Loading metadata from {metadata_file.name}")
+            metadata = pd.read_csv(metadata_file, index_col=0)
+
+        # Preprocess
+        logger.info(f"Preprocessing ({proteomics.shape[0]} proteins x {proteomics.shape[1]} samples)")
+        processed, qc_report = qc.preprocess_pipeline(
+            proteomics,
+            batch_info=metadata,
+            missing_threshold=0.30,
+            impute_method=impute_method,
+            apply_batch_correction=batch_correction,
+        )
+
+        # Save
+        output_file = processed_dir / f"{cohort}_processed.h5ad"
+        try:
+            qc.save_processed_data(processed, metadata, output_file)
+            output_paths[cohort] = output_file
+            logger.info(f"Saved: {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save {cohort}: {e}")
+
+        # Log QC report
+        logger.info("\nQC Report:")
+        for step, metrics in qc_report.items():
+            logger.info(f"  {step}: {metrics}")
+
+    return output_paths
+
+
+def preprocess_pride_datasets(
+    raw_dir: Path,
+    processed_dir: Path,
+    impute_method: str = "mnar",
+) -> Dict[str, Path]:
+    """
+    Preprocess PRIDE proteomics datasets.
+
+    Args:
+        raw_dir: Raw data directory
+        processed_dir: Output directory
+        impute_method: Imputation method
+
+    Returns:
+        Dictionary mapping project IDs to output file paths
+    """
+    qc = ProteomicsQC(random_state=42)
+    output_paths = {}
+
+    pride_dir = raw_dir / "pride"
+    if not pride_dir.exists():
+        logger.warning(f"PRIDE directory not found: {pride_dir}")
+        return output_paths
+
+    for project_dir in pride_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+
+        project_id = project_dir.name
+        logger.info(f"\nProcessing {project_id}...")
+        logger.info("=" * 60)
+
+        # Find data files
+        data_files = list(project_dir.glob("*expression*.csv.gz"))
+
+        if not data_files:
+            logger.warning(f"No expression file found in {project_dir}")
+            continue
+
+        data_file = data_files[0]
+
+        # Load and preprocess
+        logger.info(f"Loading {data_file.name}")
+        data = qc.load_proteomics_matrix(data_file)
+
+        logger.info(f"Preprocessing ({data.shape[0]} proteins x {data.shape[1]} samples)")
+        processed, qc_report = qc.preprocess_pipeline(
+            data,
+            missing_threshold=0.30,
+            impute_method=impute_method,
+        )
+
+        # Save
+        output_file = processed_dir / f"{project_id}_processed.h5ad"
+        try:
+            qc.save_processed_data(processed, None, output_file)
+            output_paths[project_id] = output_file
+            logger.info(f"Saved: {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save {project_id}: {e}")
+
+    return output_paths
+
+
+def preprocess_data(
+    config_path: str = "config.yaml",
+    impute_method: str = "mnar",
+    batch_correction: bool = True,
+):
+    """
+    Main preprocessing orchestrator.
 
     Args:
         config_path: Path to configuration file
+        impute_method: Imputation method (mnar or knn)
+        batch_correction: Whether to apply batch correction
     """
     config = load_config(config_path)
     raw_dir = Path(config["data"]["raw_dir"])
     processed_dir = Path(config["data"]["processed_dir"])
     processed_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Preprocessing data from {raw_dir}")
-    logger.info(f"Output directory: {processed_dir}")
+    logger.info("=" * 70)
+    logger.info("PROTEOMICS PREPROCESSING PIPELINE")
+    logger.info("=" * 70)
+    logger.info(f"Raw data: {raw_dir}")
+    logger.info(f"Output: {processed_dir}")
+    logger.info(f"Imputation method: {impute_method}")
+    logger.info(f"Batch correction: {batch_correction}")
 
-    # TODO: Implement preprocessing pipeline
-    # - Load raw data
-    # - Handle missing values
-    # - Normalize data
-    # - Apply batch correction if needed
-    # - Feature selection
-    # - Remove outliers
-    # - Save processed data
+    # Process each dataset
+    all_outputs = {}
 
-    logger.info("Preprocessing complete")
+    # AMP-AD
+    logger.info("\n" + "=" * 70)
+    logger.info("PROCESSING AMP-AD COHORTS")
+    logger.info("=" * 70)
+    ampad_outputs = preprocess_ampad_cohorts(
+        raw_dir,
+        processed_dir,
+        impute_method,
+        batch_correction,
+    )
+    all_outputs.update(ampad_outputs)
+
+    # PRIDE
+    logger.info("\n" + "=" * 70)
+    logger.info("PROCESSING PRIDE DATASETS")
+    logger.info("=" * 70)
+    pride_outputs = preprocess_pride_datasets(raw_dir, processed_dir, impute_method)
+    all_outputs.update(pride_outputs)
+
+    # Summary
+    logger.info("\n" + "=" * 70)
+    logger.info("PREPROCESSING COMPLETE")
+    logger.info("=" * 70)
+    logger.info(f"Processed datasets: {len(all_outputs)}")
+    for name, path in all_outputs.items():
+        logger.info(f"  - {name}: {path}")
+
+    logger.info(f"\nOutput directory: {processed_dir}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Preprocess proteomics data")
+    parser = argparse.ArgumentParser(
+        description="Preprocess proteomics data",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m src.preprocess.preprocess
+  python -m src.preprocess.preprocess --impute-method knn
+  python -m src.preprocess.preprocess --no-batch-correction
+        """,
+    )
     parser.add_argument("--config", default="config.yaml", help="Config file path")
+    parser.add_argument(
+        "--impute-method",
+        choices=["mnar", "knn", "iterative"],
+        default="mnar",
+        help="Missing value imputation method",
+    )
+    parser.add_argument(
+        "--batch-correction",
+        action="store_true",
+        default=True,
+        help="Apply batch correction",
+    )
+    parser.add_argument(
+        "--no-batch-correction",
+        action="store_false",
+        dest="batch_correction",
+        help="Disable batch correction",
+    )
+
     args = parser.parse_args()
 
-    preprocess_data(args.config)
+    preprocess_data(
+        args.config,
+        impute_method=args.impute_method,
+        batch_correction=args.batch_correction,
+    )
