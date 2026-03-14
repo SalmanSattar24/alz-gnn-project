@@ -32,9 +32,27 @@ def train_baselines(config_path: str = "config.yaml"):
     return results
 
 
+def train_gnn(config_path: str = "config.yaml"):
+    """
+    Train Graph Attention Network models.
+
+    Args:
+        config_path: Path to configuration file
+    """
+    logger.info("Training Graph Attention Network models")
+
+    from src.models.gnn_model import GNNTrainer
+
+    trainer = GNNTrainer(config_path)
+    results = trainer.train(cohorts=["ROSMAP", "MSBB", "MAYO"])
+
+    logger.info("GNN model training complete")
+    return results
+
+
 def train_model(config_path: str = "config.yaml"):
     """
-    Train models (currently baseline ML models).
+    Train models (baseline ML models and GNN).
 
     Args:
         config_path: Path to configuration file
@@ -51,14 +69,8 @@ def train_model(config_path: str = "config.yaml"):
     # Train baseline models first
     train_baselines(config_path)
 
-    # TODO: Implement GNN model training
-    # - Load processed graphs
-    # - Initialize GNN model
-    # - Set up optimizer and scheduler
-    # - Training loop with validation
-    # - Early stopping
-    # - Save best model checkpoint
-    # - Log metrics and plots
+    # Train GNN models
+    train_gnn(config_path)
 
     logger.info("Model training complete")
 
@@ -67,9 +79,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train models")
     parser.add_argument("--config", default="config.yaml", help="Config file path")
     parser.add_argument("--baseline-only", action="store_true", help="Train only baseline models")
+    parser.add_argument("--gnn-only", action="store_true", help="Train only GNN models")
     args = parser.parse_args()
 
     if args.baseline_only:
         train_baselines(args.config)
+    elif args.gnn_only:
+        train_gnn(args.config)
     else:
         train_model(args.config)

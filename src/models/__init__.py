@@ -7,6 +7,12 @@ from src.models.baselines import (
     MLPBaseline,
     RandomForestBaseline,
 )
+from src.models.gnn_model import (
+    GATWithAttributions,
+    GNNTrainer,
+    ProteinGraphDataset,
+    explain,
+)
 
 __all__ = [
     "BaselineMLModel",
@@ -14,4 +20,8 @@ __all__ = [
     "RandomForestBaseline",
     "MLPBaseline",
     "BaselineModelEvaluator",
+    "GATWithAttributions",
+    "ProteinGraphDataset",
+    "GNNTrainer",
+    "explain",
 ]
