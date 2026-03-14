@@ -1,0 +1,249 @@
+# Proteomics-Driven GNN for Alzheimer's Protein Prioritization
+# Project configuration file
+
+# ============================================================================
+# DATA CONFIGURATION
+# ============================================================================
+data:
+  # Directory paths
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  synapse_project_id: null  # Set your Synapse project ID here
+
+  # Data sources
+  proteomics_table: null    # Synapse table ID for proteomics data
+  ppi_network: null         # Synapse ID for PPI network
+
+  # Cache settings
+  cache_dir: ".cache"
+  use_cache: true
+
+# ============================================================================
+# PREPROCESSING CONFIGURATION
+# ============================================================================
+preprocess:
+  # Normalization method: "z-score", "min-max", "log-transform", "quantile"
+  normalization: "z-score"
+
+  # Missing value handling
+  missing_value_strategy: "mean"  # "mean", "median", "drop", "forward_fill"
+  missing_percentile_threshold: 0.5
+
+  # Batch correction
+  batch_correction: false
+  batch_correction_method: "combat"  # "combat", "harmony", "seurat"
+
+  # Feature selection
+  feature_selection: true
+  # Method: "variance", "mutual_information", "mrmr"
+  feature_selection_method: "variance"
+  n_features_to_select: 2000
+
+  # Outlier removal
+  remove_outliers: true
+  outlier_method: "iqr"  # "iqr", "zscore", "isolation_forest"
+  outlier_threshold: 3.0
+
+# ============================================================================
+# GRAPH CONSTRUCTION CONFIGURATION
+# ============================================================================
+graph:
+  # PPI source: "string", "bionet", "intact"
+  ppi_source: "string"
+  ppi_version: "v11.5"
+
+  # Edge filtering
+  edge_threshold: 0.4  # Confidence threshold for edges
+  edge_type: "combined_score"  # Type of edge weight to use
+
+  # Node features
+  use_protein_features: true
+  protein_feature_dim: 128
+
+  # Graph statistics
+  track_statistics: true
+
+# ============================================================================
+# MODEL CONFIGURATION
+# ============================================================================
+model:
+  # Architecture: "GCN", "GAT", "GraphSAGE", "GIN", "ChebNet"
+  architecture: "GCN"
+
+  # Network dimensions
+  hidden_dims: [128, 64, 32]
+  output_dim: 1
+  dropout_rate: 0.3
+  activation: "relu"  # "relu", "elu", "gelu"
+
+  # Graph pooling
+  pooling: "global_mean"  # "global_mean", "global_sum", "global_max"
+
+  # Attention (for GAT)
+  num_heads: 4
+  head_dim: 16
+
+# ============================================================================
+# TRAINING CONFIGURATION
+# ============================================================================
+training:
+  # Optimization
+  optimizer: "adam"
+  learning_rate: 0.001
+  weight_decay: 1e-5
+  momentum: 0.9
+
+  # Training loop
+  epochs: 100
+  batch_size: 32
+  validation_split: 0.2
+  test_split: 0.1
+
+  # Learning rate scheduling
+  scheduler: "cosine"  # "cosine", "reduce_on_plateau", "linear", "exponential"
+  scheduler_params:
+    warmup_epochs: 10
+    min_lr: 1e-6
+
+  # Early stopping
+  early_stopping: true
+  early_stopping_patience: 20
+  early_stopping_metric: "val_loss"
+
+  # Loss function
+  loss_function: "mse"  # "mse", "mae", "huber"
+
+  # Gradient clipping
+  clip_grad_norm: 1.0
+
+  # GPU/Device
+  device: "cuda"  # "cuda", "cpu"
+  mixed_precision: true
+  num_workers: 4
+
+# ============================================================================
+# VALIDATION AND METRICS
+# ============================================================================
+validation:
+  # Metrics to track
+  metrics: ["r2", "mae", "rmse", "pearson", "spearman"]
+
+  # Cross-validation
+  cross_validation: true
+  cv_folds: 5
+
+  # Early stopping validation frequency
+  validation_interval: 5
+
+# ============================================================================
+# EXPLAINABILITY CONFIGURATION
+# ============================================================================
+explain:
+  # SHAP or CAPTUM
+  method: "shap"  # "shap", "captum", "both"
+
+  # SHAP configuration
+  shap_explainer: "deepexplainer"  # "deepexplainer", "gradientexplainer", "kernelexplainer"
+  num_background_samples: 100
+  num_explain_samples: 50
+
+  # CAPTUM configuration
+  captum_methods: ["saliency", "integrated_gradients", "attention_rollout"]
+  integrated_gradients_steps: 50
+
+  # Output
+  save_explanations: true
+  explain_output_dir: "results/explanations"
+
+# ============================================================================
+# STABILITY ANALYSIS CONFIGURATION
+# ============================================================================
+analysis:
+  stability:
+    # Perturbation analysis
+    enable_perturbation: true
+    perturbation_types: ["gaussian_noise", "feature_dropout", "edge_dropout"]
+    perturbation_magnitudes: [0.1, 0.2, 0.3]
+
+    # Robustness evaluation
+    enable_robustness: true
+    robustness_metrics: ["prediction_stability", "feature_importance_stability"]
+
+    # Generalization evaluation
+    enable_generalization: true
+    cohort_splits: ["demographics", "disease_severity"]
+
+  # Output
+  output_dir: "results/stability"
+
+# ============================================================================
+# HYPERPARAMETER OPTIMIZATION
+# ============================================================================
+hyperparameter_optimization:
+  enable: true
+  method: "optuna"  # "optuna", "grid", "random"
+
+  # Optuna configuration
+  optuna_sampler: "tpe"  # "tpe", "random", "cmaes"
+  n_trials: 50
+  n_jobs: 4
+  timeout: 3600  # seconds
+
+  # Search space
+  search_space:
+    learning_rate: [1e-4, 1e-2]
+    weight_decay: [1e-6, 1e-3]
+    hidden_dim_1: [32, 256]
+    hidden_dim_2: [16, 128]
+    dropout: [0.1, 0.5]
+
+# ============================================================================
+# LOGGING AND CHECKPOINTING
+# ============================================================================
+logging:
+  # Logging level: "DEBUG", "INFO", "WARNING", "ERROR"
+  level: "INFO"
+  log_file: "alz_gnn.log"
+  log_dir: "logs"
+
+  # Checkpoint saving
+  save_checkpoints: true
+  checkpoint_dir: "results/models"
+  checkpoint_frequency: 10  # Save every N epochs
+  keep_best_only: true
+  keep_last_n: 3
+
+# ============================================================================
+# REPORTING
+# ============================================================================
+reporting:
+  # Report generation
+  generate_report: true
+  report_format: "pdf"  # "pdf", "html", "both"
+  report_output: "results/report"
+
+  # Figures
+  save_figures: true
+  figure_format: "pdf"  # "pdf", "png", "svg"
+  figure_dpi: 300
+
+  # Statistics
+  include_statistics: true
+  include_plots: true
+  include_tables: true
+
+# ============================================================================
+# DEVELOPMENT AND DEBUG
+# ============================================================================
+debug:
+  # Debugging
+  debug_mode: false
+  verbose: true
+
+  # Profiling
+  enable_profiling: false
+  profile_output: "results/profile.prof"
+
+  # Reproducibility
+  seed: 42
+  deterministic: true

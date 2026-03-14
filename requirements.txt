@@ -1,0 +1,53 @@
+# Core dependencies
+torch>=2.0.0
+torch-geometric>=2.3.0
+torchvision>=0.15.0
+torchaudio>=0.15.0
+
+# Data processing and scientific computing
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+networkx>=3.2
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.0.0
+
+# Hyperparameter Optimization
+optuna>=3.3.0
+
+# Model Explainability
+captum>=0.7.0
+shap>=0.42.0
+
+# Omics and Bioinformatics
+anndata>=0.10.0
+scanpy>=1.9.0
+biopython>=1.81
+python-louvain>=0.16
+leidenalg>=0.9.1
+
+# Data Access
+synapseclient>=2.7.0
+
+# Configuration and Utilities
+pyyaml>=6.0
+requests>=2.31.0
+tqdm>=4.66.0
+pydantic>=2.0.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.9.0
+flake8>=6.0.0
+mypy>=1.5.0
+isort>=5.12.0
+
+# Jupyter
+jupyter>=1.0.0
+jupyterlab>=4.0.0
+ipykernel>=6.25.0
