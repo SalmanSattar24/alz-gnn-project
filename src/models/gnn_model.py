@@ -333,6 +333,10 @@ class GNNTrainer:
         self.config = load_config(config_path)
         self.seed = self.config.get("debug", {}).get("seed", 42)
 
+        # Training config (must be before _get_device)
+        self.train_config = self.config.get("training", {})
+        self.model_config = self.config.get("model", {})
+
         # Set random seeds
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
@@ -346,10 +350,6 @@ class GNNTrainer:
 
         self.results_dir = Path(self.config["logging"]["checkpoint_dir"])
         self.results_dir.mkdir(parents=True, exist_ok=True)
-
-        # Training config
-        self.train_config = self.config.get("training", {})
-        self.model_config = self.config.get("model", {})
 
     def _get_device(self) -> torch.device:
         """Get torch device (CUDA or CPU)."""
@@ -422,11 +422,11 @@ class GNNTrainer:
         # Initialize model
         model = GATWithAttributions(
             in_channels=1,
-            hidden_channels=self.model_config.get("hidden_dims", [128])[0],
+            hidden_channels=int(self.model_config.get("hidden_dims", [128])[0]),
             out_channels=1,
-            num_heads=self.model_config.get("num_heads", 4),
+            num_heads=int(self.model_config.get("num_heads", 4)),
             num_layers=2,
-            dropout=self.model_config.get("dropout_rate", 0.3),
+            dropout=float(self.model_config.get("dropout_rate", 0.3)),
         ).to(self.device)
 
         logger.info(f"Model initialized: {model}")
@@ -434,13 +434,15 @@ class GNNTrainer:
         # Optimizer and scheduler
         optimizer = optim.Adam(
             model.parameters(),
-            lr=self.train_config.get("learning_rate", 0.001),
-            weight_decay=self.train_config.get("weight_decay", 1e-5),
+            lr=float(self.train_config.get("learning_rate", 0.001)),
+            weight_decay=float(
+                self.train_config.get("weight_decay", 1e-5)
+            ),
         )
 
         # Training loop
-        num_epochs = self.train_config.get("epochs", 100)
-        early_stopping_patience = self.train_config.get("early_stopping_patience", 20)
+        num_epochs = int(self.train_config.get("epochs", 100))
+        early_stopping_patience = int(self.train_config.get("early_stopping_patience", 20))
 
         best_val_loss = float("inf")
         patience_counter = 0
@@ -526,9 +528,15 @@ class GNNTrainer:
                 batch.x, batch.edge_index, batch.edge_attr, batch.batch
             )
 
+            # Reshape for loss computation
+            # graph_logits: [batch_size, 1] or [1] depending on pooling
+            # batch.y: [batch_size] or scalar
+            logits_flat = graph_logits.view(-1)
+            labels_flat = batch.y.view(-1)
+
             # Classification loss
             cls_loss = F.binary_cross_entropy_with_logits(
-                graph_logits.squeeze(), batch.y
+                logits_flat, labels_flat
             )
 
             # Auxiliary node importance loss (optional, reduces weight)
@@ -563,15 +571,19 @@ class GNNTrainer:
                     batch.x, batch.edge_index, batch.edge_attr, batch.batch
                 )
 
+                # Reshape for loss computation
+                logits_flat = graph_logits.view(-1)
+                labels_flat = batch.y.view(-1)
+
                 loss = F.binary_cross_entropy_with_logits(
-                    graph_logits.squeeze(), batch.y
+                    logits_flat, labels_flat
                 )
                 total_loss += loss.item()
 
                 # Predictions
-                preds = torch.sigmoid(graph_logits).cpu().numpy()
-                all_preds.extend(preds.flatten())
-                all_labels.extend(batch.y.cpu().numpy())
+                preds = torch.sigmoid(logits_flat).cpu().numpy()
+                all_preds.extend(preds)
+                all_labels.extend(labels_flat.cpu().numpy())
 
         all_preds = np.array(all_preds)
         all_labels = np.array(all_labels)
