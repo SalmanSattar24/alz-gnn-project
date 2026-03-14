@@ -1,0 +1,207 @@
+{
+  "files": {
+    "mock_ampad_ROSMAP_proteomics": {
+      "path": "data\\raw\\ampad\\ROSMAP\\ROSMAP_proteomics.csv.gz",
+      "hash": "cc0ee3e1c14afb1c126684bedc3c6537ce7766f1c16626a465582be5d2335715",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 4275111,
+      "timestamp": "1773477371.2542007",
+      "metadata": {
+        "cohort": "ROSMAP",
+        "n_proteins": 5000,
+        "n_samples": 100,
+        "n_ad": 60,
+        "n_control": 40
+      }
+    },
+    "mock_ampad_ROSMAP_metadata": {
+      "path": "data\\raw\\ampad\\ROSMAP\\ROSMAP_metadata.csv",
+      "hash": "d1fc2b1adc5a0c5e32b39f08526428eeefa18519c3eacf0320ac81a751afd72d",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 4624,
+      "timestamp": "1773477371.265385",
+      "metadata": {
+        "cohort": "ROSMAP",
+        "sample_count": 100
+      }
+    },
+    "mock_ampad_MSBB_proteomics": {
+      "path": "data\\raw\\ampad\\MSBB\\MSBB_proteomics.csv.gz",
+      "hash": "ddfd624cd2a47e6619e310d0ffe015243fabedf6d5d0cc17dabbd2414764efad",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 3423940,
+      "timestamp": "1773477372.6341848",
+      "metadata": {
+        "cohort": "MSBB",
+        "n_proteins": 5000,
+        "n_samples": 80,
+        "n_ad": 50,
+        "n_control": 30
+      }
+    },
+    "mock_ampad_MSBB_metadata": {
+      "path": "data\\raw\\ampad\\MSBB\\MSBB_metadata.csv",
+      "hash": "c3202e899c8739f579ea5eafb90a2b7253b6cbb21d5764cffd3c17ea8ed24e88",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 3371,
+      "timestamp": "1773477372.6443634",
+      "metadata": {
+        "cohort": "MSBB",
+        "sample_count": 80
+      }
+    },
+    "mock_ampad_MAYO_proteomics": {
+      "path": "data\\raw\\ampad\\MAYO\\MAYO_proteomics.csv.gz",
+      "hash": "57e8a4831ef4ab313eb4e8d6cdc17dcb79c398926a545ec89002b7918e5c57eb",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 3849156,
+      "timestamp": "1773477374.1962707",
+      "metadata": {
+        "cohort": "MAYO",
+        "n_proteins": 5000,
+        "n_samples": 90,
+        "n_ad": 55,
+        "n_control": 35
+      }
+    },
+    "mock_ampad_MAYO_metadata": {
+      "path": "data\\raw\\ampad\\MAYO\\MAYO_metadata.csv",
+      "hash": "1cd913d5185e9f62f206a30e8c8e1ed810bd3e5aa610bf43f9bc46d29867a4cf",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 3795,
+      "timestamp": "1773477374.20743",
+      "metadata": {
+        "cohort": "MAYO",
+        "sample_count": 90
+      }
+    },
+    "mock_pride_PXD000560": {
+      "path": "data\\raw\\pride\\PXD000560\\PXD000560_expression.csv.gz",
+      "hash": "96a551874f03c6850716dc9caa38c434eab95ba19b032c6362989cefbfa8ad2a",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 1362048,
+      "timestamp": "1773477374.633059",
+      "metadata": {
+        "project_id": "PXD000560",
+        "description": "Alzheimer's disease brain proteomics",
+        "n_proteins": 2999,
+        "n_samples": 50
+      }
+    },
+    "mock_pride_PXD004165": {
+      "path": "data\\raw\\pride\\PXD004165\\PXD004165_expression.csv.gz",
+      "hash": "181d32936b7bf26a7148dc0fd68e9b9b7201e92cc2d285788c4cebbd0c45d856",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 1092005,
+      "timestamp": "1773477375.0170841",
+      "metadata": {
+        "project_id": "PXD004165",
+        "description": "APP transgenic mouse models",
+        "n_proteins": 2999,
+        "n_samples": 40
+      }
+    },
+    "mock_pride_PXD010871": {
+      "path": "data\\raw\\pride\\PXD010871\\PXD010871_expression.csv.gz",
+      "hash": "be4d3bbc67dfa1f34ba3133d32e5407c526c4fa6f45f94fa137fc1ddff62548a",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 957177,
+      "timestamp": "1773477375.2839394",
+      "metadata": {
+        "project_id": "PXD010871",
+        "description": "Amyloid-beta aggregates",
+        "n_proteins": 2999,
+        "n_samples": 35
+      }
+    },
+    "mock_string_edges": {
+      "path": "data\\raw\\string\\protein_interactions.csv.gz",
+      "hash": "8aa801ac3fb49f5f9266844e264335dbd84cc2affda35a3eef11496c8f911508",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 180729,
+      "timestamp": "1773477375.4473917",
+      "metadata": {
+        "total_edges": 25099,
+        "n_proteins": 5000,
+        "score_threshold": 700
+      }
+    },
+    "mock_gtex_expression": {
+      "path": "data\\raw\\gtex\\gtex_tissue_expression.csv.gz",
+      "hash": "87fe79ab78be1b6c40a781d318c0ede14b111c622f338485c79a66089fe75816",
+      "algorithm": "sha256",
+      "source": "Mock",
+      "size": 2350634,
+      "timestamp": "1773477376.178694",
+      "metadata": {
+        "n_genes": 5000,
+        "n_tissues": 52,
+        "tissues": [
+          "Adipose_Subcutaneous",
+          "Adipose_Visceral",
+          "Adrenal_Gland",
+          "Artery_Aorta",
+          "Artery_Coronary",
+          "Artery_Tibial",
+          "Bladder",
+          "Brain_Amygdala",
+          "Brain_Anterior",
+          "Brain_Caudate",
+          "Brain_Cerebellum",
+          "Brain_Cerebral_Cortex",
+          "Brain_Cortex",
+          "Brain_Frontal_Cortex",
+          "Brain_Hippocampus",
+          "Brain_Hypothalamus",
+          "Brain_Nucleus",
+          "Brain_Putamen",
+          "Brain_Spinal_Cord",
+          "Brain_Substantia_Nigra",
+          "Breast_Mammary",
+          "Cells_Cultured_Fibroblasts",
+          "Cells_EBV_Lymphocytes",
+          "Colon_Sigmoid",
+          "Colon_Transverse",
+          "Coronary_Artery",
+          "Esophagus_Gastroesophageal",
+          "Esophagus_Mucosa",
+          "Esophagus_Muscularis",
+          "Fallopian_Tube",
+          "Heart_Atrial_Appendage",
+          "Heart_Left_Ventricle",
+          "Kidney_Cortex",
+          "Kidney_Medulla",
+          "Liver",
+          "Lung",
+          "Minor_Salivary_Gland",
+          "Muscle_Skeletal",
+          "Nerve_Tibial",
+          "Ovary",
+          "Pancreas",
+          "Pituitary",
+          "Prostate",
+          "Skin_Not_Sun_Exposed",
+          "Skin_Sun_Exposed",
+          "Small_Intestine_Terminal",
+          "Spleen",
+          "Stomach",
+          "Testis",
+          "Thyroid",
+          "Uterus",
+          "Vagina"
+        ]
+      }
+    }
+  },
+  "metadata": {}
+}
