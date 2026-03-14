@@ -1,47 +1,285 @@
 """
-Graph construction module for Alzheimer's proteomics project.
+Build protein interaction graphs for Alzheimer's proteomics data.
 
-Builds protein-protein interaction networks from data and PPI sources.
+Combines STRING PPI network with co-abundance edges computed from proteomics data.
 """
 
 import argparse
 from pathlib import Path
 
+import anndata
+import networkx as nx
+
 from src.config import load_config
+from src.graphs.graph_utils import (
+    compute_coabundance_edges,
+    compute_centrality_metrics,
+    create_network,
+    load_string_ppi,
+    map_proteins_to_ids,
+    validate_graph,
+)
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def build_graphs(config_path: str = "config.yaml"):
+def build_graph_for_cohort(
+    processed_file: Path,
+    string_file: Path,
+    output_dir: Path,
+    cohort_name: str,
+    include_coabundance: bool = True,
+    string_threshold: int = 700,
+    rho_threshold: float = 0.5,
+    pvalue_threshold: float = 0.05,
+):
     """
-    Build protein interaction graphs.
+    Build graph for a single cohort.
+
+    Args:
+        processed_file: Path to processed AnnData file
+        string_file: Path to STRING PPI file
+        output_dir: Output directory
+        cohort_name: Cohort identifier
+        include_coabundance: Whether to add co-abundance edges
+        string_threshold: STRING score threshold
+        rho_threshold: Correlation threshold
+        pvalue_threshold: P-value threshold
+    """
+    logger.info(f"\nBuilding graph for {cohort_name}")
+    logger.info("=" * 60)
+
+    # Load processed proteomics data
+    logger.info(f"Loading processed data from {processed_file.name}")
+    adata = anndata.read_h5ad(processed_file)
+
+    # Get protein names
+    proteins = set(adata.var_names)
+    logger.info(f"Data contains {len(proteins)} proteins")
+
+    # Load STRING PPI
+    logger.info(f"Loading STRING PPI from {string_file.name}")
+    ppi_edges = load_string_ppi(string_file, score_threshold=string_threshold)
+
+    if ppi_edges.empty:
+        logger.error(f"No PPI edges loaded for {cohort_name}")
+        return
+
+    # Map proteins to PPI
+    proteins_in_ppi, mapping = map_proteins_to_ids(adata.var_names, ppi_edges)
+
+    if not proteins_in_ppi:
+        logger.error(f"No proteins found in PPI network for {cohort_name}")
+        return
+
+    # Filter PPI edges to proteins in data
+    ppi_edges_filtered = ppi_edges[
+        (ppi_edges["protein1"].isin(proteins_in_ppi)) &
+        (ppi_edges["protein2"].isin(proteins_in_ppi))
+    ].copy()
+
+    logger.info(f"PPI edges after filtering: {len(ppi_edges_filtered)}")
+
+    # Compute co-abundance edges
+    coab_edges = None
+    if include_coabundance:
+        logger.info("Computing co-abundance edges from expression data...")
+        # Get expression for proteins in PPI
+        expr_subset = adata[:, list(proteins_in_ppi)].X.T  # Proteins x samples
+
+        import pandas as pd
+        expr_df = pd.DataFrame(
+            expr_subset,
+            index=list(proteins_in_ppi),
+            columns=[f"S{i}" for i in range(expr_subset.shape[1])],
+        )
+
+        coab_edges = compute_coabundance_edges(
+            expr_df,
+            rho_threshold=rho_threshold,
+            pvalue_threshold=pvalue_threshold,
+        )
+
+    # Create graph
+    logger.info("Creating network...")
+    G = create_network(
+        ppi_edges_filtered,
+        coab_edges=coab_edges,
+        proteins=proteins_in_ppi,
+    )
+
+    # Validate graph
+    validate_graph(G, proteins, set(ppi_edges["protein1"].unique()))
+
+    # Compute centrality metrics
+    centrality_df = compute_centrality_metrics(G)
+
+    # Save graph as GraphML
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    graphml_file = output_dir / f"{cohort_name}_graph.graphml"
+    logger.info(f"Saving graph to {graphml_file}")
+    nx.write_graphml(G, graphml_file)
+
+    # Save centrality metrics
+    centrality_file = output_dir / f"{cohort_name}_centrality.csv"
+    logger.info(f"Saving centrality metrics to {centrality_file}")
+    centrality_df.to_csv(centrality_file, index=False)
+
+    # Save summary
+    summary_file = output_dir / f"{cohort_name}_graph_summary.txt"
+    with open(summary_file, "w") as f:
+        f.write(f"Graph Summary: {cohort_name}\n")
+        f.write("=" * 60 + "\n\n")
+        f.write(f"Nodes: {len(G.nodes())}\n")
+        f.write(f"Edges: {len(G.edges())}\n")
+        f.write(f"Density: {nx.density(G):.4f}\n")
+        f.write(f"Is connected: {nx.is_connected(G)}\n")
+        f.write(f"Number of components: {nx.number_connected_components(G)}\n")
+
+        if len(G) > 1:
+            f.write(f"\nLargest component size: ")
+            largest_cc = max(nx.connected_components(G), key=len)
+            f.write(f"{len(largest_cc)}\n")
+
+        f.write(f"\nEdge types:\n")
+        edge_types = {}
+        for u, v, data in G.edges(data=True):
+            edge_type = data.get("type", "unknown")
+            edge_types[edge_type] = edge_types.get(edge_type, 0) + 1
+
+        for edge_type, count in edge_types.items():
+            f.write(f"  {edge_type}: {count}\n")
+
+    logger.info(f"Saved summary to {summary_file}")
+
+    logger.info(f"Graph building complete for {cohort_name}")
+
+
+def build_graphs(
+    config_path: str = "config.yaml",
+    include_coabundance: bool = True,
+    string_threshold: int = 700,
+):
+    """
+    Build graphs for all processed datasets.
 
     Args:
         config_path: Path to configuration file
+        include_coabundance: Whether to add co-abundance edges
+        string_threshold: STRING score threshold
     """
     config = load_config(config_path)
+
     processed_dir = Path(config["data"]["processed_dir"])
-    results_dir = Path("results/graphs")
-    results_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir = Path(config["data"]["raw_dir"])
+    graph_config = config.get("graph", {})
 
-    logger.info(f"Building graphs from {processed_dir}")
-    logger.info(f"Output directory: {results_dir}")
+    output_dir = Path("data/graphs")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # TODO: Implement graph construction
-    # - Load processed proteomics data
-    # - Fetch PPI network (STRING, BioNet, etc.)
-    # - Filter edges by confidence threshold
-    # - Add node features from proteomics data
-    # - Create PyTorch Geometric Data objects
-    # - Save graphs
+    # Find STRING PPI file
+    string_file = raw_dir / "string" / "protein.links.v11.5.txt.gz"
 
-    logger.info("Graph construction complete")
+    # Check if file exists, use mock if not
+    if not string_file.exists():
+        string_file_mock = raw_dir / "string" / "protein_interactions.csv.gz"
+        if string_file_mock.exists():
+            logger.warning(
+                f"STRING file not found at {string_file}, using mock data from {string_file_mock}"
+            )
+            # Need to handle mock format differently
+            string_file = None
+        else:
+            logger.error(f"STRING PPI file not found")
+            return
+
+    logger.info("=" * 70)
+    logger.info("GRAPH CONSTRUCTION PIPELINE")
+    logger.info("=" * 70)
+    logger.info(f"Processed data: {processed_dir}")
+    logger.info(f"Output: {output_dir}")
+    logger.info(f"Include co-abundance edges: {include_coabundance}")
+
+    # Process each cohort
+    cohorts = {
+        "ROSMAP": "ROSMAP_processed.h5ad",
+        "MSBB": "MSBB_processed.h5ad",
+        "MAYO": "MAYO_processed.h5ad",
+        "PXD000560": "PXD000560_processed.h5ad",
+        "PXD004165": "PXD004165_processed.h5ad",
+        "PXD010871": "PXD010871_processed.h5ad",
+    }
+
+    for cohort_name, filename in cohorts.items():
+        processed_file = processed_dir / filename
+
+        if not processed_file.exists():
+            logger.warning(f"Processed file not found: {processed_file}")
+            continue
+
+        if string_file is None:
+            logger.warning(f"Skipping {cohort_name} - STRING file not available")
+            continue
+
+        try:
+            build_graph_for_cohort(
+                processed_file,
+                string_file,
+                output_dir,
+                cohort_name,
+                include_coabundance=include_coabundance,
+                string_threshold=string_threshold,
+                rho_threshold=graph_config.get("rho_threshold", 0.5),
+                pvalue_threshold=graph_config.get("pvalue_threshold", 0.05),
+            )
+        except Exception as e:
+            logger.error(f"Failed to build graph for {cohort_name}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+    logger.info("\n" + "=" * 70)
+    logger.info("GRAPH CONSTRUCTION COMPLETE")
+    logger.info("=" * 70)
+    logger.info(f"Output directory: {output_dir}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build protein interaction graphs")
+    parser = argparse.ArgumentParser(
+        description="Build protein interaction graphs",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m src.graphs.build_graphs
+  python -m src.graphs.build_graphs --no-coabundance
+  python -m src.graphs.build_graphs --string-threshold 800
+        """,
+    )
     parser.add_argument("--config", default="config.yaml", help="Config file path")
+    parser.add_argument(
+        "--coabundance",
+        action="store_true",
+        default=True,
+        help="Include co-abundance edges",
+    )
+    parser.add_argument(
+        "--no-coabundance",
+        action="store_false",
+        dest="coabundance",
+        help="Exclude co-abundance edges",
+    )
+    parser.add_argument(
+        "--string-threshold",
+        type=int,
+        default=700,
+        help="STRING score threshold (0-1000)",
+    )
+
     args = parser.parse_args()
 
-    build_graphs(args.config)
+    build_graphs(
+        args.config,
+        include_coabundance=args.coabundance,
+        string_threshold=args.string_threshold,
+    )
