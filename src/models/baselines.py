@@ -1,0 +1,585 @@
+"""
+Baseline machine learning models for Alzheimer's disease classification.
+
+Implements three baseline models:
+- Logistic Regression
+- Random Forest
+- Multi-Layer Perceptron
+
+Used for establishing performance benchmarks before training GNNs.
+"""
+
+import json
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import anndata
+import numpy as np
+import optuna
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    f1_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import StratifiedKFold
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+
+from src.config import load_config
+from src.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
+
+class BaselineMLModel(ABC):
+    """Abstract base class for baseline machine learning models."""
+
+    def __init__(self, model_name: str, seed: int = 42):
+        """
+        Initialize baseline model.
+
+        Args:
+            model_name: Name of the model
+            seed: Random seed for reproducibility
+        """
+        self.model_name = model_name
+        self.seed = seed
+        self.model = None
+        self.scaler = StandardScaler()
+        self.feature_importance = None
+
+    @abstractmethod
+    def _create_model(self):
+        """Create the underlying model. To be implemented by subclasses."""
+        pass
+
+    def _normalize_features(
+        self, X_train: pd.DataFrame, X_val: pd.DataFrame, X_test: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """
+        Normalize features using StandardScaler fit on training data.
+
+        Args:
+            X_train: Training features (n_samples, n_features)
+            X_val: Validation features
+            X_test: Test features
+
+        Returns:
+            Normalized train, val, test dataframes
+        """
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_val_scaled = self.scaler.transform(X_val)
+        X_test_scaled = self.scaler.transform(X_test)
+
+        return (
+            pd.DataFrame(X_train_scaled, index=X_train.index, columns=X_train.columns),
+            pd.DataFrame(X_val_scaled, index=X_val.index, columns=X_val.columns),
+            pd.DataFrame(X_test_scaled, index=X_test.index, columns=X_test.columns),
+        )
+
+    def train(
+        self, X_train: pd.DataFrame, y_train: np.ndarray
+    ) -> None:
+        """
+        Train the model.
+
+        Args:
+            X_train: Training features
+            y_train: Training labels
+        """
+        self._create_model()
+        self.model.fit(X_train, y_train)
+        self._extract_importance(X_train.columns)
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        """
+        Get predictions.
+
+        Args:
+            X: Features to predict on
+
+        Returns:
+            Predicted class labels
+        """
+        return self.model.predict(X)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """
+        Get prediction probabilities.
+
+        Args:
+            X: Features to predict on
+
+        Returns:
+            Predicted probabilities
+        """
+        if hasattr(self.model, "predict_proba"):
+            proba = self.model.predict_proba(X)
+            return proba[:, 1]  # Return probability of positive class
+        else:
+            # For models without predict_proba, use decision function
+            return self.model.decision_function(X)
+
+    @abstractmethod
+    def _extract_importance(self, feature_names: List[str]) -> None:
+        """Extract feature importance. To be implemented by subclasses."""
+        pass
+
+    def evaluate(
+        self, X_test: pd.DataFrame, y_test: np.ndarray
+    ) -> Dict[str, float]:
+        """
+        Evaluate model on test set.
+
+        Args:
+            X_test: Test features
+            y_test: Test labels
+
+        Returns:
+            Dictionary with metrics (AUROC, AUPRC, accuracy, F1)
+        """
+        y_pred = self.predict(X_test)
+        y_pred_proba = self.predict_proba(X_test)
+
+        # Handle edge case where all predictions are same class
+        try:
+            auroc = roc_auc_score(y_test, y_pred_proba)
+        except ValueError:
+            auroc = 0.5
+
+        try:
+            auprc = average_precision_score(y_test, y_pred_proba)
+        except ValueError:
+            auprc = 0.5
+
+        accuracy = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+
+        return {
+            "auroc": auroc,
+            "auprc": auprc,
+            "accuracy": accuracy,
+            "f1": f1,
+        }
+
+
+class LogisticRegressionBaseline(BaselineMLModel):
+    """Logistic regression baseline model."""
+
+    def __init__(self, seed: int = 42):
+        super().__init__(model_name="logistic_regression", seed=seed)
+
+    def _create_model(self):
+        """Create logistic regression model."""
+        self.model = LogisticRegression(
+            random_state=self.seed,
+            max_iter=1000,
+            solver="lbfgs",
+            n_jobs=-1,
+        )
+
+    def _extract_importance(self, feature_names: List[str]) -> None:
+        """Extract coefficients as feature importance."""
+        if self.model is not None and hasattr(self.model, "coef_"):
+            self.feature_importance = pd.DataFrame(
+                {
+                    "feature": feature_names,
+                    "importance": np.abs(self.model.coef_[0]),
+                }
+            ).sort_values("importance", ascending=False)
+
+
+class RandomForestBaseline(BaselineMLModel):
+    """Random forest baseline model."""
+
+    def __init__(self, seed: int = 42):
+        super().__init__(model_name="random_forest", seed=seed)
+
+    def _create_model(self):
+        """Create random forest model."""
+        self.model = RandomForestClassifier(
+            n_estimators=100,
+            random_state=self.seed,
+            n_jobs=-1,
+            max_depth=20,
+            min_samples_split=5,
+        )
+
+    def _extract_importance(self, feature_names: List[str]) -> None:
+        """Extract feature importances from random forest."""
+        if self.model is not None and hasattr(self.model, "feature_importances_"):
+            self.feature_importance = pd.DataFrame(
+                {
+                    "feature": feature_names,
+                    "importance": self.model.feature_importances_,
+                }
+            ).sort_values("importance", ascending=False)
+
+
+class MLPBaseline(BaselineMLModel):
+    """Multi-layer perceptron baseline model."""
+
+    def __init__(self, seed: int = 42, hidden_dims: Tuple[int, ...] = (256, 128)):
+        super().__init__(model_name="mlp", seed=seed)
+        self.hidden_dims = hidden_dims
+
+    def _create_model(self):
+        """Create MLP model."""
+        self.model = MLPClassifier(
+            hidden_layer_sizes=self.hidden_dims,
+            max_iter=500,
+            random_state=self.seed,
+            early_stopping=True,
+            validation_fraction=0.1,
+            n_iter_no_change=20,
+            learning_rate_init=0.001,
+            solver="adam",
+        )
+
+    def _extract_importance(self, feature_names: List[str]) -> None:
+        """Extract importance from first hidden layer weights."""
+        if self.model is not None and hasattr(self.model, "coefs_"):
+            # Use absolute weights from first layer as importance
+            importance = np.abs(self.model.coefs_[0]).sum(axis=1)
+            self.feature_importance = pd.DataFrame(
+                {
+                    "feature": feature_names,
+                    "importance": importance,
+                }
+            ).sort_values("importance", ascending=False)
+
+
+class BaselineModelEvaluator:
+    """Orchestrates training and evaluation of baseline models."""
+
+    def __init__(self, config_path: str = "config.yaml"):
+        """
+        Initialize evaluator with configuration.
+
+        Args:
+            config_path: Path to configuration file
+        """
+        self.config = load_config(config_path)
+        self.processed_dir = Path(self.config["data"]["processed_dir"])
+        self.results_dir = Path(self.config["logging"]["checkpoint_dir"])
+        self.results_dir.mkdir(parents=True, exist_ok=True)
+
+        self.seed = self.config.get("debug", {}).get("seed", 42)
+        self.cv_folds = self.config.get("validation", {}).get("cv_folds", 5)
+
+    def _load_cohort_data(self, cohort: str) -> Tuple[pd.DataFrame, np.ndarray]:
+        """
+        Load processed proteomics and metadata for a cohort.
+
+        Args:
+            cohort: Cohort name (ROSMAP, MSBB, or MAYO)
+
+        Returns:
+            Tuple of (abundance matrix, diagnosis labels)
+        """
+        processed_file = self.processed_dir / f"{cohort}_processed.h5ad"
+
+        if not processed_file.exists():
+            logger.warning(f"Processed file not found: {processed_file}")
+            return None, None
+
+        logger.info(f"Loading {cohort} data from {processed_file}")
+        adata = anndata.read_h5ad(processed_file)
+
+        # Extract abundance matrix (samples x proteins)
+        X = pd.DataFrame(
+            adata.X,
+            columns=adata.var_names,
+            index=adata.obs_names,
+        )
+
+        # Extract diagnosis labels
+        if "diagnosis" in adata.obs.columns:
+            diagnosis = adata.obs["diagnosis"].values
+            # Convert to binary (1 for AD, 0 for Control)
+            y = np.array([1 if d == "AD" else 0 for d in diagnosis])
+        else:
+            logger.warning(f"No diagnosis column found in {cohort} metadata")
+            return None, None
+
+        logger.info(f"Loaded {X.shape[0]} samples with {X.shape[1]} proteins")
+        logger.info(f"Class distribution: {np.bincount(y)}")
+
+        return X, y
+
+    def _stratified_split(
+        self, X: pd.DataFrame, y: np.ndarray, test_size: float = 0.2, val_size: float = 0.2
+    ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Split data into train, val, test with stratification.
+
+        Args:
+            X: Features
+            y: Labels
+            test_size: Fraction for test set
+            val_size: Fraction for validation set (from remaining after test split)
+
+        Returns:
+            Tuple of (X_train, X_val, X_test, y_train, y_val, y_test)
+        """
+        splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.seed)
+
+        # First split: train+val vs test
+        for train_val_idx, test_idx in splitter.split(X, y):
+            X_train_val = X.iloc[train_val_idx]
+            X_test = X.iloc[test_idx]
+            y_train_val = y[train_val_idx]
+            y_test = y[test_idx]
+            break
+
+        # Second split: train vs val
+        splitter2 = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.seed)
+        for train_idx, val_idx in splitter2.split(X_train_val, y_train_val):
+            X_train = X_train_val.iloc[train_idx]
+            X_val = X_train_val.iloc[val_idx]
+            y_train = y_train_val[train_idx]
+            y_val = y_train_val[val_idx]
+            break
+
+        logger.info(f"Split: train={len(X_train)}, val={len(X_val)}, test={len(X_test)}")
+
+        return X_train, X_val, X_test, y_train, y_val, y_test
+
+    def _optimize_hyperparams(
+        self, model_class, X_train: pd.DataFrame, y_train: np.ndarray, X_val: pd.DataFrame, y_val: np.ndarray
+    ) -> Dict:
+        """
+        Optimize hyperparameters using Optuna.
+
+        Args:
+            model_class: Model class to optimize
+            X_train: Training features
+            y_train: Training labels
+            X_val: Validation features
+            y_val: Validation labels
+
+        Returns:
+            Best hyperparameters
+        """
+
+        def objective(trial):
+            if model_class == LogisticRegressionBaseline:
+                C = trial.suggest_float("C", 0.001, 10.0, log=True)
+                model = LogisticRegression(C=C, random_state=self.seed, max_iter=1000, solver="lbfgs")
+            elif model_class == RandomForestBaseline:
+                n_estimators = trial.suggest_int("n_estimators", 50, 200)
+                max_depth = trial.suggest_int("max_depth", 5, 30)
+                min_samples_split = trial.suggest_int("min_samples_split", 2, 10)
+                model = RandomForestClassifier(
+                    n_estimators=n_estimators,
+                    max_depth=max_depth,
+                    min_samples_split=min_samples_split,
+                    random_state=self.seed,
+                    n_jobs=-1,
+                )
+            elif model_class == MLPBaseline:
+                hidden_dim_1 = trial.suggest_int("hidden_dim_1", 128, 512)
+                hidden_dim_2 = trial.suggest_int("hidden_dim_2", 64, 256)
+                learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.01, log=True)
+                model = MLPClassifier(
+                    hidden_layer_sizes=(hidden_dim_1, hidden_dim_2),
+                    learning_rate_init=learning_rate,
+                    max_iter=500,
+                    random_state=self.seed,
+                    early_stopping=True,
+                    n_iter_no_change=20,
+                )
+            else:
+                raise ValueError(f"Unknown model class: {model_class}")
+
+            model.fit(X_train, y_train)
+            y_pred_proba = model.predict_proba(X_val)[:, 1] if hasattr(model, "predict_proba") else model.decision_function(X_val)
+
+            try:
+                auroc = roc_auc_score(y_val, y_pred_proba)
+            except ValueError:
+                auroc = 0.5
+
+            return auroc
+
+        sampler = optuna.samplers.TPESampler(seed=self.seed)
+        study = optuna.create_study(direction="maximize", sampler=sampler)
+        study.optimize(objective, n_trials=20, show_progress_bar=False)
+
+        return study.best_params
+
+    def train_model(
+        self,
+        model_class,
+        X_train: pd.DataFrame,
+        X_val: pd.DataFrame,
+        X_test: pd.DataFrame,
+        y_train: np.ndarray,
+        y_val: np.ndarray,
+        y_test: np.ndarray,
+    ) -> Tuple[Dict, pd.DataFrame]:
+        """
+        Train a single model.
+
+        Args:
+            model_class: Model class to train
+            X_train, X_val, X_test: Feature sets
+            y_train, y_val, y_test: Label sets
+
+        Returns:
+            Tuple of (test_metrics, feature_importance)
+        """
+        # Create model and normalize features
+        model = model_class(seed=self.seed)
+        X_train_norm, X_val_norm, X_test_norm = model._normalize_features(X_train, X_val, X_test)
+
+        # Train model
+        model.train(X_train_norm, y_train)
+
+        # Evaluate on test set
+        test_metrics = model.evaluate(X_test_norm, y_test)
+
+        logger.info(f"{model.model_name} Test Metrics: {test_metrics}")
+
+        return test_metrics, model.feature_importance
+
+    def cross_validate(
+        self, model_class, X: pd.DataFrame, y: np.ndarray
+    ) -> Dict:
+        """
+        Perform cross-validation for a model.
+
+        Args:
+            model_class: Model class to cross-validate
+            X: Features
+            y: Labels
+
+        Returns:
+            Dictionary with CV metrics
+        """
+        cv_scores = {k: [] for k in ["auroc", "auprc", "accuracy", "f1"]}
+
+        skf = StratifiedKFold(n_splits=self.cv_folds, shuffle=True, random_state=self.seed)
+
+        for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y)):
+            logger.info(f"  Fold {fold_idx + 1}/{self.cv_folds}")
+
+            X_train_cv = X.iloc[train_idx]
+            X_test_cv = X.iloc[test_idx]
+            y_train_cv = y[train_idx]
+            y_test_cv = y[test_idx]
+
+            # Create model and normalize
+            model = model_class(seed=self.seed)
+            X_train_cv_norm, X_test_cv_norm, _ = model._normalize_features(X_train_cv, X_test_cv, X_test_cv)
+
+            # Train and evaluate
+            model.train(X_train_cv_norm, y_train_cv)
+            fold_metrics = model.evaluate(X_test_cv_norm, y_test_cv)
+
+            for metric, value in fold_metrics.items():
+                cv_scores[metric].append(value)
+
+        # Aggregate CV scores
+        cv_metrics = {}
+        for metric in cv_scores:
+            cv_metrics[f"mean_{metric}"] = np.mean(cv_scores[metric])
+            cv_metrics[f"std_{metric}"] = np.std(cv_scores[metric])
+
+        return cv_metrics
+
+    def train_all_models(self, cohorts: Optional[List[str]] = None) -> Dict:
+        """
+        Train all baseline models on specified cohorts.
+
+        Args:
+            cohorts: List of cohort names. If None, uses all available cohorts.
+
+        Returns:
+            Dictionary with results for all models and cohorts
+        """
+        if cohorts is None:
+            cohorts = ["ROSMAP", "MSBB", "MAYO"]
+
+        all_results = {}
+
+        for cohort in cohorts:
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Training baseline models for {cohort}")
+            logger.info(f"{'='*60}")
+
+            X, y = self._load_cohort_data(cohort)
+
+            if X is None or y is None:
+                logger.warning(f"Skipping {cohort} - data not available")
+                continue
+
+            # Split data
+            X_train, X_val, X_test, y_train, y_val, y_test = self._stratified_split(X, y)
+
+            cohort_results = {}
+
+            for model_class in [LogisticRegressionBaseline, RandomForestBaseline, MLPBaseline]:
+                model_name = model_class(seed=self.seed).model_name
+                logger.info(f"\nTraining {model_name}...")
+
+                # Train model
+                test_metrics, feature_importance = self.train_model(
+                    model_class, X_train, X_val, X_test, y_train, y_val, y_test
+                )
+
+                # Cross-validation
+                logger.info(f"Running cross-validation for {model_name}...")
+                cv_metrics = self.cross_validate(model_class, X_train, y_train)
+
+                # Store results
+                cohort_results[model_name] = {
+                    "test_metrics": test_metrics,
+                    "cv_metrics": cv_metrics,
+                    "feature_importance": feature_importance.to_dict() if feature_importance is not None else None,
+                }
+
+                # Save feature importance
+                if feature_importance is not None:
+                    importance_path = self.results_dir / f"{cohort}_{model_name}_importance.csv"
+                    feature_importance.to_csv(importance_path, index=False)
+                    logger.info(f"Saved feature importance: {importance_path}")
+
+            all_results[cohort] = cohort_results
+
+        # Save all results
+        self._save_results(all_results)
+
+        return all_results
+
+    def _save_results(self, results: Dict) -> None:
+        """
+        Save results to JSON file.
+
+        Args:
+            results: Results dictionary
+        """
+        # Convert numpy types for JSON serialization
+        def convert_to_serializable(obj):
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, (np.floating, np.integer)):
+                return float(obj) if isinstance(obj, np.floating) else int(obj)
+            elif isinstance(obj, dict):
+                return {k: convert_to_serializable(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_serializable(item) for item in obj]
+            return obj
+
+        serializable_results = convert_to_serializable(results)
+
+        results_path = self.results_dir / "baseline_metrics.json"
+        with open(results_path, "w") as f:
+            json.dump(serializable_results, f, indent=2)
+
+        logger.info(f"Saved results to {results_path}")

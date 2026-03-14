@@ -1,0 +1,13 @@
+Graph Summary: ROSMAP
+============================================================
+
+Nodes: 4799
+Edges: 62262
+Density: 0.0054
+Is connected: False
+Number of components: 297
+
+Largest component size: 4472
+
+Edge types:
+  ppi: 62262
