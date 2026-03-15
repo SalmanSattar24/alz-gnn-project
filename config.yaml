@@ -8,11 +8,39 @@ data:
   # Directory paths
   raw_dir: "data/raw"
   processed_dir: "data/processed"
-  synapse_project_id: null  # Set your Synapse project ID here
+  networks_dir: "data/raw/networks"   # STRING and other graph-edge files
 
-  # Data sources
-  proteomics_table: null    # Synapse table ID for proteomics data
-  ppi_network: null         # Synapse ID for PPI network
+  # ------------------------------------------------------------------
+  # Data mode
+  #   use_mock: false  → use real downloaded datasets  (default)
+  #   use_mock: true   → use synthetic data (no Synapse credentials needed)
+  # The pipeline auto-detects available real data; this flag forces mock mode.
+  # ------------------------------------------------------------------
+  use_mock: false
+
+  # ------------------------------------------------------------------
+  # ROSMAP proteomics  (AMP-AD Knowledge Portal — requires Synapse access)
+  # Register at https://www.synapse.org and accept the AMP-AD data use
+  # agreement at https://www.synapse.org/#!Synapse:syn2580853
+  # Then set:  export SYNAPSE_AUTH_TOKEN=<personal_access_token>
+  # ------------------------------------------------------------------
+  ampad_rosmap_dir: "data/raw/ampad/ROSMAP"
+  # Leave as null to use the built-in defaults in download_ampad_rosmap.py
+  synapse_project_id: null
+  rosmap_proteomics_synapse_id: null   # default: syn21261359
+  rosmap_metadata_synapse_id: null     # default: syn21261360
+
+  # ------------------------------------------------------------------
+  # STRING protein interaction network  (public — no credentials required)
+  # Download with:  python -m src.download.download_string_network
+  # ------------------------------------------------------------------
+  string_network_file: "data/raw/networks/string_highconf.tsv"
+  string_score_threshold: 700          # minimum combined_score (0-1000)
+  string_version: "11.5"
+
+  # Legacy fields (kept for backward compatibility)
+  proteomics_table: null
+  ppi_network: null
 
   # Cache settings
   cache_dir: ".cache"

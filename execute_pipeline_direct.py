@@ -1,7 +1,21 @@
 #!/usr/bin/env python
 """
 Execute the Alzheimer's biomarker discovery ML pipeline using Python modules.
-This script directly calls Python functions, bypassing the corrupted notebooks.
+
+Data-mode precedence
+--------------------
+1. Real data   — STRING network TSV and/or ROSMAP proteomics are already on disk
+                 (download them first with the dedicated scripts below).
+2. Mock data   — generated in-process from src/download/mock_data.py;
+                 activated automatically when real data is absent, or via --mock.
+
+To download real data:
+    python -m src.download.download_string_network        # ~1 GB, no credentials
+    python -m src.download.download_ampad_rosmap          # requires Synapse PAT
+
+Then run this script:
+    python execute_pipeline_direct.py          # auto-detects real data
+    python execute_pipeline_direct.py --mock   # force mock even if real data exists
 """
 
 import os
@@ -23,15 +37,23 @@ logger = logging.getLogger(__name__)
 class PipelineExecutor:
     """Execute the ML pipeline stages using Python modules"""
 
-    def __init__(self, project_root: str = None):
-        """Initialize pipeline executor"""
+    def __init__(self, project_root: str = None, force_mock: bool = False):
+        """
+        Initialize pipeline executor.
+
+        Args:
+            project_root: Repository root (defaults to this file's directory).
+            force_mock:   If True, always use synthetic mock data even when
+                          real downloaded data is present.
+        """
         if project_root is None:
             project_root = str(Path(__file__).parent)
 
         self.project_root = Path(project_root)
-        self.src_dir = self.project_root / "src"
+        self.src_dir     = self.project_root / "src"
         self.results_dir = self.project_root / "results"
-        self.data_dir = self.project_root / "data"
+        self.data_dir    = self.project_root / "data"
+        self.force_mock  = force_mock
 
         # Create directories
         self.results_dir.mkdir(parents=True, exist_ok=True)
@@ -43,12 +65,16 @@ class PipelineExecutor:
         # Import required modules
         try:
             from src.download.mock_data import generate_all_mock_data
+            from src.download.download_string_network import string_network_present
+            from src.download.download_ampad_rosmap import rosmap_files_present
             from src.config import load_config
             from src.utils.logger import setup_logger
 
-            self.generate_all_mock_data = generate_all_mock_data
-            self.load_config = load_config
-            self.setup_logger = setup_logger
+            self.generate_all_mock_data  = generate_all_mock_data
+            self.string_network_present  = string_network_present
+            self.rosmap_files_present    = rosmap_files_present
+            self.load_config             = load_config
+            self.setup_logger            = setup_logger
 
             self.modules_available = True
         except Exception as e:
@@ -67,7 +93,13 @@ class PipelineExecutor:
         }
 
     def run_stage_download(self) -> Tuple[bool, str]:
-        """Run the download stage - generate mock data"""
+        """
+        Download / detect datasets.
+
+        - If force_mock=True  → always generate synthetic data.
+        - If real data present → report paths and proceed without downloading.
+        - Otherwise           → log download instructions and fall back to mock.
+        """
         logger.info("\n" + "="*70)
         logger.info("[1/8] Download datasets")
         logger.info("="*70)
@@ -76,23 +108,52 @@ class PipelineExecutor:
             if not self.modules_available:
                 return False, "Required modules not available"
 
-            # Generate mock data
             raw_dir = self.data_dir / "raw"
             raw_dir.mkdir(parents=True, exist_ok=True)
 
-            logger.info("Generating mock datasets...")
-            success = self.generate_all_mock_data(raw_dir)
-
-            if success:
-                logger.info("Mock data generation completed successfully")
-
-                # Verify files created
+            if self.force_mock:
+                logger.info("--mock flag set: generating synthetic datasets...")
+                success = self.generate_all_mock_data(raw_dir)
+                if not success:
+                    return False, "Mock data generation failed"
                 files = list(raw_dir.glob("**/*"))
-                logger.info(f"Generated {len(files)} files in {raw_dir}")
+                msg = f"Generated {len(files)} mock data files"
+                logger.info(msg)
+                return True, msg
 
-                return True, f"Generated {len(files)} mock data files"
-            else:
-                return False, "Mock data generation returned False"
+            # Check what real data is present
+            string_ok, string_path = self.string_network_present()
+            rosmap_ok, rosmap_path = self.rosmap_files_present()
+
+            if string_ok and rosmap_ok:
+                logger.info("Real datasets detected — skipping download step.")
+                logger.info(f"  STRING  : {string_path}")
+                logger.info(f"  ROSMAP  : {rosmap_path}")
+                return True, f"Real data present: STRING={string_path.name}, ROSMAP={rosmap_path.name}"
+
+            # Partial or no real data — give instructions then fall back to mock
+            if not string_ok:
+                logger.warning(
+                    "STRING network not found.\n"
+                    "  Download with: python -m src.download.download_string_network\n"
+                    "  (~1 GB download, ~1-2 min, no credentials required)"
+                )
+            if not rosmap_ok:
+                logger.warning(
+                    "ROSMAP proteomics not found.\n"
+                    "  Download with: python -m src.download.download_ampad_rosmap\n"
+                    "  (requires Synapse account + AMP-AD data use agreement;\n"
+                    "   set SYNAPSE_AUTH_TOKEN env var before running)"
+                )
+
+            logger.info("Falling back to synthetic mock data for missing datasets...")
+            success = self.generate_all_mock_data(raw_dir)
+            if not success:
+                return False, "Mock data generation failed"
+            files = list(raw_dir.glob("**/*"))
+            msg = f"Generated {len(files)} mock data files (real data not available)"
+            logger.info(msg)
+            return True, msg
 
         except Exception as e:
             error_msg = f"Error in download stage: {str(e)}\n{traceback.format_exc()}"
@@ -143,7 +204,12 @@ class PipelineExecutor:
             return False, error_msg
 
     def run_stage_graphs(self) -> Tuple[bool, str]:
-        """Run the graph construction stage"""
+        """
+        Build protein-protein interaction network.
+
+        Uses real STRING high-confidence TSV when available; otherwise generates
+        a synthetic sparse network for testing.
+        """
         logger.info("\n" + "="*70)
         logger.info("[3/8] Construct graphs")
         logger.info("="*70)
@@ -155,38 +221,49 @@ class PipelineExecutor:
             graphs_dir = self.data_dir / "processed" / "graphs"
             graphs_dir.mkdir(parents=True, exist_ok=True)
 
-            logger.info("Building protein-protein interaction networks...")
+            # --- real STRING data path ---
+            string_ok, string_path = (
+                (False, None) if self.force_mock
+                else self.string_network_present()
+            )
 
-            # Create mock PPI network
-            n_proteins = 100
-            proteins = [f"P{i:05d}" for i in range(1, n_proteins + 1)]
-
-            # Create sparse network
-            edges = []
-            weights = []
-            for i in range(n_proteins):
-                # Each protein connects to 2-5 random other proteins
-                n_neighbors = np.random.randint(2, 6)
-                neighbors = np.random.choice(n_proteins, n_neighbors, replace=False)
-                for j in neighbors:
-                    if i < j:  # Avoid duplicates
-                        edges.append((proteins[i], proteins[j]))
-                        weights.append(np.random.uniform(0.4, 1.0))
-
-            # Save network
-            network_df = pd.DataFrame({
-                'protein_a': [e[0] for e in edges],
-                'protein_b': [e[1] for e in edges],
-                'weight': weights
-            })
+            if string_ok:
+                logger.info(f"Building graph from real STRING network: {string_path}")
+                df = pd.read_csv(string_path, sep="\t")
+                # Columns: protein1 protein2 ... combined_score
+                # combined_score is already filtered >= 700 in the TSV
+                threshold = 700
+                df = df[df["combined_score"] >= threshold]
+                network_df = pd.DataFrame({
+                    "protein_a": df["protein1"].values,
+                    "protein_b": df["protein2"].values,
+                    "weight":    (df["combined_score"] / 1000.0).values,
+                })
+                n_edges = len(network_df)
+                logger.info(f"Loaded {n_edges:,} STRING edges (score >= {threshold})")
+            else:
+                logger.info("Building synthetic PPI network (mock)...")
+                n_proteins = 100
+                proteins = [f"P{i:05d}" for i in range(1, n_proteins + 1)]
+                edges, weights = [], []
+                for i in range(n_proteins):
+                    n_neighbors = np.random.randint(2, 6)
+                    neighbors = np.random.choice(n_proteins, n_neighbors, replace=False)
+                    for j in neighbors:
+                        if i < j:
+                            edges.append((proteins[i], proteins[j]))
+                            weights.append(round(np.random.uniform(0.4, 1.0), 4))
+                network_df = pd.DataFrame({
+                    "protein_a": [e[0] for e in edges],
+                    "protein_b": [e[1] for e in edges],
+                    "weight":    weights,
+                })
+                n_edges = len(edges)
 
             network_file = graphs_dir / "ppi_network.csv"
             network_df.to_csv(network_file, index=False)
-
-            logger.info(f"Created PPI network with {len(edges)} edges")
-            logger.info(f"Saved to {network_file}")
-
-            return True, f"Created PPI network with {len(edges)} edges"
+            logger.info(f"Saved PPI network with {n_edges:,} edges → {network_file}")
+            return True, f"Created PPI network with {n_edges:,} edges"
 
         except Exception as e:
             error_msg = f"Error in graph construction: {str(e)}\n{traceback.format_exc()}"
@@ -575,8 +652,30 @@ class PipelineExecutor:
 
 def main():
     """Main execution function"""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run the Alzheimer's biomarker discovery pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Data modes:
+  (default)  Auto-detect real data; mock only for missing datasets.
+  --mock     Force synthetic mock data for all stages.
+
+To download real data first:
+  python -m src.download.download_string_network      # STRING PPI, no credentials
+  python -m src.download.download_ampad_rosmap        # ROSMAP proteomics, Synapse
+""",
+    )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Force synthetic mock data (no downloads required)",
+    )
+    args = parser.parse_args()
+
     project_root = str(Path(__file__).parent)
-    executor = PipelineExecutor(project_root)
+    executor = PipelineExecutor(project_root, force_mock=args.mock)
 
     # Run pipeline
     results = executor.run_pipeline()
