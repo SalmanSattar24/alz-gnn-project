@@ -28,15 +28,10 @@ def generate_report(config_path: str = "config.yaml"):
     logger.info(f"Report format: {config['reporting']['report_format']}")
     logger.info(f"Output directory: {report_dir}")
 
-    # TODO: Implement report generation
-    # - Compile model performance metrics
-    # - Include training curves
-    # - Add explainability visualizations
-    # - Include stability analysis results
-    # - Generate final PDF/HTML report
-    # - Create summary statistics table
-
-    logger.info("Report generation complete")
+    raise NotImplementedError(
+        "generate_report.py is a CLI stub. "
+        "Run the full implementation via: python -m src.analysis.final_ranking --config config.yaml"
+    )
 
 
 if __name__ == "__main__":

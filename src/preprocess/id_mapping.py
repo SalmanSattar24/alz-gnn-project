@@ -19,12 +19,12 @@ class ProteinIDMapper:
 
     def __init__(self):
         """Initialize mapper with empty indices (loaded on demand)."""
-        self.symbol_to_uniprot: Dict[str, str] = {}
-        self.uniprot_to_symbol: Dict[str, str] = {}
-        self.symbol_to_ensembl: Dict[str, str] = {}
-        self.ensembl_to_symbol: Dict[str, str] = {}
-        self.uniprot_to_ensembl: Dict[str, str] = {}
-        self.ensembl_to_uniprot: Dict[str, str] = {}
+        self._symbol_to_uniprot: Dict[str, str] = {}
+        self._uniprot_to_symbol: Dict[str, str] = {}
+        self._symbol_to_ensembl: Dict[str, str] = {}
+        self._ensembl_to_symbol: Dict[str, str] = {}
+        self._uniprot_to_ensembl: Dict[str, str] = {}
+        self._ensembl_to_uniprot: Dict[str, str] = {}
         self._loaded = False
 
     def build_mapping(
@@ -50,32 +50,32 @@ class ProteinIDMapper:
                 if uniprot_col and uniprot_col in protein_data.columns:
                     uniprot = str(row[uniprot_col])
                     if not pd.isna(uniprot) and uniprot != "nan":
-                        self.symbol_to_uniprot[symbol] = uniprot
-                        self.uniprot_to_symbol[uniprot] = symbol
+                        self._symbol_to_uniprot[symbol] = uniprot
+                        self._uniprot_to_symbol[uniprot] = symbol
 
                 if ensembl_col and ensembl_col in protein_data.columns:
                     ensembl = str(row[ensembl_col])
                     if not pd.isna(ensembl) and ensembl != "nan":
-                        self.symbol_to_ensembl[symbol] = ensembl
-                        self.ensembl_to_symbol[ensembl] = symbol
+                        self._symbol_to_ensembl[symbol] = ensembl
+                        self._ensembl_to_symbol[ensembl] = symbol
 
         self._loaded = True
 
     def symbol_to_uniprot(self, symbol: str) -> Optional[str]:
         """Convert gene symbol to UniProt ID."""
-        return self.symbol_to_uniprot.get(symbol.upper())
+        return self._symbol_to_uniprot.get(symbol.upper())
 
     def uniprot_to_symbol(self, uniprot: str) -> Optional[str]:
         """Convert UniProt ID to gene symbol."""
-        return self.uniprot_to_symbol.get(uniprot)
+        return self._uniprot_to_symbol.get(uniprot)
 
     def symbol_to_ensembl(self, symbol: str) -> Optional[str]:
         """Convert gene symbol to Ensembl ID."""
-        return self.symbol_to_ensembl.get(symbol.upper())
+        return self._symbol_to_ensembl.get(symbol.upper())
 
     def ensembl_to_symbol(self, ensembl: str) -> Optional[str]:
         """Convert Ensembl ID to gene symbol."""
-        return self.ensembl_to_symbol.get(ensembl)
+        return self._ensembl_to_symbol.get(ensembl)
 
     def map_protein_ids(
         self,
@@ -100,13 +100,13 @@ class ProteinIDMapper:
 
         for protein in proteins:
             if from_format == "symbol" and to_format == "uniprot":
-                result = self.symbol_to_uniprot.get(protein.upper())
+                result = self._symbol_to_uniprot.get(protein.upper())
             elif from_format == "uniprot" and to_format == "symbol":
-                result = self.uniprot_to_symbol.get(protein)
+                result = self._uniprot_to_symbol.get(protein)
             elif from_format == "symbol" and to_format == "ensembl":
-                result = self.symbol_to_ensembl.get(protein.upper())
+                result = self._symbol_to_ensembl.get(protein.upper())
             elif from_format == "ensembl" and to_format == "symbol":
-                result = self.ensembl_to_symbol.get(protein)
+                result = self._ensembl_to_symbol.get(protein)
             else:
                 result = None
 
@@ -118,9 +118,9 @@ class ProteinIDMapper:
     def get_mapped_count(self) -> Tuple[int, int, int]:
         """Get mapping statistics. Returns (symbol_to_uniprot, symbol_to_ensembl, uniprot_to_ensembl)."""
         return (
-            len(self.symbol_to_uniprot),
-            len(self.symbol_to_ensembl),
-            len(self.uniprot_to_ensembl),
+            len(self._symbol_to_uniprot),
+            len(self._symbol_to_ensembl),
+            len(self._uniprot_to_ensembl),
         )
 
 

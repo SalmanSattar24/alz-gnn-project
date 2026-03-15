@@ -204,7 +204,7 @@ class ProteomicsQC:
 
         if method == "combat":
             try:
-                from scanpy.preprocessing import combat
+                import scanpy as sc
 
                 # Prepare batch vector
                 batch_col = batch_info.get("batch", batch_info.iloc[:, 0])
@@ -215,8 +215,8 @@ class ProteomicsQC:
                 adata = anndata.AnnData(data.T)
                 adata.obs["batch"] = batch_vector
 
-                # Apply ComBat
-                adata = combat(adata, key="batch", inplace=False)
+                # Apply ComBat (modifies adata in-place)
+                sc.pp.combat(adata, key="batch")
 
                 data_corrected = pd.DataFrame(
                     adata.X.T,
@@ -224,13 +224,14 @@ class ProteomicsQC:
                     columns=data.columns,
                 )
 
+                n_batches = len(np.unique(batch_vector))
                 metrics = {
                     "applied": True,
                     "method": "combat",
-                    "batches": len(batch_vector.unique()),
+                    "batches": n_batches,
                 }
 
-                logger.info(f"Batch correction complete ({len(batch_vector.unique())} batches)")
+                logger.info(f"Batch correction complete ({n_batches} batches)")
 
                 return data_corrected, metrics
 

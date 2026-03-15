@@ -47,7 +47,7 @@ DATASETS = {
 }
 
 
-def authenticate_synapse(username: str = None, password: str = None) -> bool:
+def authenticate_synapse(username: str = None, password: str = None):
     """
     Authenticate with Synapse.
 
@@ -56,13 +56,13 @@ def authenticate_synapse(username: str = None, password: str = None) -> bool:
         password: Synapse password (uses env var if None)
 
     Returns:
-        True if authentication successful
+        Authenticated synapseclient.Synapse instance, or None on failure
     """
     try:
         import synapseclient
     except ImportError:
         logger.error("synapseclient not installed. Install with: pip install synapseclient")
-        return False
+        return None
 
     username = username or os.getenv("SYNAPSE_USER")
     password = password or os.getenv("SYNAPSE_PASS")
@@ -71,16 +71,16 @@ def authenticate_synapse(username: str = None, password: str = None) -> bool:
         logger.error(
             "Synapse credentials not found. Set SYNAPSE_USER and SYNAPSE_PASS environment variables"
         )
-        return False
+        return None
 
     try:
         syn = synapseclient.Synapse()
         syn.login(username, password)
         logger.info("Successfully authenticated with Synapse")
-        return True
+        return syn
     except Exception as e:
         logger.error(f"Synapse authentication failed: {e}")
-        return False
+        return None
 
 
 def download_ampad(output_dir: Path = Path("data/raw/ampad")) -> bool:
@@ -93,12 +93,6 @@ def download_ampad(output_dir: Path = Path("data/raw/ampad")) -> bool:
     Returns:
         True if successful
     """
-    try:
-        import synapseclient
-    except ImportError:
-        logger.error("synapseclient required. Install with: pip install synapseclient")
-        return False
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -111,16 +105,10 @@ def download_ampad(output_dir: Path = Path("data/raw/ampad")) -> bool:
 
     logger.info(f"Downloading AMP-AD proteomics datasets to {output_dir}")
 
-    # Authenticate
-    if not authenticate_synapse():
+    # Authenticate and get the Synapse client in one step
+    syn = authenticate_synapse()
+    if syn is None:
         logger.error("Failed to authenticate with Synapse. Use mock data instead.")
-        return False
-
-    try:
-        syn = synapseclient.Synapse()
-        syn.login(os.getenv("SYNAPSE_USER"), os.getenv("SYNAPSE_PASS"))
-    except Exception as e:
-        logger.error(f"Synapse login failed: {e}")
         return False
 
     # Download each dataset

@@ -188,6 +188,7 @@ def create_network(
                 "score": row["combined_score"],
             })
             for _, row in ppi_edges.iterrows()
+            if proteins is None or (row["protein1"] in proteins and row["protein2"] in proteins)
         ]
         G.add_edges_from(ppi_edge_list)
         logger.info(f"Added {len(ppi_edge_list)} PPI edges")
@@ -202,6 +203,7 @@ def create_network(
                 "pvalue": row["pvalue"],
             })
             for _, row in coab_edges.iterrows()
+            if proteins is None or (row["protein1"] in proteins and row["protein2"] in proteins)
         ]
         G.add_edges_from(coab_edge_list)
         logger.info(f"Added {len(coab_edge_list)} co-abundance edges")

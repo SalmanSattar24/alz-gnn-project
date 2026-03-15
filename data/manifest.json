@@ -1,12 +1,12 @@
 {
   "files": {
     "mock_ampad_ROSMAP_proteomics": {
-      "path": "data\\raw\\ampad\\ROSMAP\\ROSMAP_proteomics.csv.gz",
-      "hash": "cc0ee3e1c14afb1c126684bedc3c6537ce7766f1c16626a465582be5d2335715",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\ROSMAP\\ROSMAP_proteomics.csv.gz",
+      "hash": "a93283cdca7d90a5b1173c4afa0b12230d40d333df57280434831be58224fca7",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 4275111,
-      "timestamp": "1773477371.2542007",
+      "size": 4275037,
+      "timestamp": "1773544062.6718736",
       "metadata": {
         "cohort": "ROSMAP",
         "n_proteins": 5000,
@@ -16,24 +16,24 @@
       }
     },
     "mock_ampad_ROSMAP_metadata": {
-      "path": "data\\raw\\ampad\\ROSMAP\\ROSMAP_metadata.csv",
-      "hash": "d1fc2b1adc5a0c5e32b39f08526428eeefa18519c3eacf0320ac81a751afd72d",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\ROSMAP\\ROSMAP_metadata.csv",
+      "hash": "6b92d94e199100443228954e08e566b5d9c6b56b7f08689e4a9b700028b1b7b8",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 4624,
-      "timestamp": "1773477371.265385",
+      "size": 4628,
+      "timestamp": "1773544062.6827686",
       "metadata": {
         "cohort": "ROSMAP",
         "sample_count": 100
       }
     },
     "mock_ampad_MSBB_proteomics": {
-      "path": "data\\raw\\ampad\\MSBB\\MSBB_proteomics.csv.gz",
-      "hash": "ddfd624cd2a47e6619e310d0ffe015243fabedf6d5d0cc17dabbd2414764efad",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\MSBB\\MSBB_proteomics.csv.gz",
+      "hash": "9e94b38c0d4d4ae1783007222b0c6226549b927748135d4010661ade757efc11",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 3423940,
-      "timestamp": "1773477372.6341848",
+      "size": 3423975,
+      "timestamp": "1773544063.856768",
       "metadata": {
         "cohort": "MSBB",
         "n_proteins": 5000,
@@ -43,24 +43,24 @@
       }
     },
     "mock_ampad_MSBB_metadata": {
-      "path": "data\\raw\\ampad\\MSBB\\MSBB_metadata.csv",
-      "hash": "c3202e899c8739f579ea5eafb90a2b7253b6cbb21d5764cffd3c17ea8ed24e88",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\MSBB\\MSBB_metadata.csv",
+      "hash": "eadb3ae0ac716646bface99ef7584674522b459cbe8d79365020238d035b6071",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 3371,
-      "timestamp": "1773477372.6443634",
+      "size": 3379,
+      "timestamp": "1773544063.8651197",
       "metadata": {
         "cohort": "MSBB",
         "sample_count": 80
       }
     },
     "mock_ampad_MAYO_proteomics": {
-      "path": "data\\raw\\ampad\\MAYO\\MAYO_proteomics.csv.gz",
-      "hash": "57e8a4831ef4ab313eb4e8d6cdc17dcb79c398926a545ec89002b7918e5c57eb",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\MAYO\\MAYO_proteomics.csv.gz",
+      "hash": "7a93453a53f6a27f859d4b6c4f197b15e47f1a7d13696bf37d29be7fd273b867",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 3849156,
-      "timestamp": "1773477374.1962707",
+      "size": 3850080,
+      "timestamp": "1773544065.0493186",
       "metadata": {
         "cohort": "MAYO",
         "n_proteins": 5000,
@@ -70,24 +70,24 @@
       }
     },
     "mock_ampad_MAYO_metadata": {
-      "path": "data\\raw\\ampad\\MAYO\\MAYO_metadata.csv",
-      "hash": "1cd913d5185e9f62f206a30e8c8e1ed810bd3e5aa610bf43f9bc46d29867a4cf",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\ampad\\MAYO\\MAYO_metadata.csv",
+      "hash": "3917ae28151fdc5bafe0528cf8dd3b41a744683d2c0c68c512c9a38cc13e9c5d",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 3795,
-      "timestamp": "1773477374.20743",
+      "size": 3801,
+      "timestamp": "1773544065.0578334",
       "metadata": {
         "cohort": "MAYO",
         "sample_count": 90
       }
     },
     "mock_pride_PXD000560": {
-      "path": "data\\raw\\pride\\PXD000560\\PXD000560_expression.csv.gz",
-      "hash": "96a551874f03c6850716dc9caa38c434eab95ba19b032c6362989cefbfa8ad2a",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\pride\\PXD000560\\PXD000560_expression.csv.gz",
+      "hash": "22c8afd436de1f45b86cc64fd4a48090d52e3f376d0704513ed5c4bd1f603fdb",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 1362048,
-      "timestamp": "1773477374.633059",
+      "size": 1361998,
+      "timestamp": "1773544065.3766317",
       "metadata": {
         "project_id": "PXD000560",
         "description": "Alzheimer's disease brain proteomics",
@@ -96,12 +96,12 @@
       }
     },
     "mock_pride_PXD004165": {
-      "path": "data\\raw\\pride\\PXD004165\\PXD004165_expression.csv.gz",
-      "hash": "181d32936b7bf26a7148dc0fd68e9b9b7201e92cc2d285788c4cebbd0c45d856",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\pride\\PXD004165\\PXD004165_expression.csv.gz",
+      "hash": "2c7577d9c9251137f2d6a7ad9788ad979fda3adf3e807a73e0b49d85fdf89f7d",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 1092005,
-      "timestamp": "1773477375.0170841",
+      "size": 1091988,
+      "timestamp": "1773544065.6394904",
       "metadata": {
         "project_id": "PXD004165",
         "description": "APP transgenic mouse models",
@@ -110,12 +110,12 @@
       }
     },
     "mock_pride_PXD010871": {
-      "path": "data\\raw\\pride\\PXD010871\\PXD010871_expression.csv.gz",
-      "hash": "be4d3bbc67dfa1f34ba3133d32e5407c526c4fa6f45f94fa137fc1ddff62548a",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\pride\\PXD010871\\PXD010871_expression.csv.gz",
+      "hash": "87e6bb22755efc49654fcf464ff2c523875630920b9e60b3b8afee1062591bf9",
       "algorithm": "sha256",
       "source": "Mock",
-      "size": 957177,
-      "timestamp": "1773477375.2839394",
+      "size": 957130,
+      "timestamp": "1773544065.865246",
       "metadata": {
         "project_id": "PXD010871",
         "description": "Amyloid-beta aggregates",
@@ -124,12 +124,12 @@
       }
     },
     "mock_string_edges": {
-      "path": "data\\raw\\string\\protein_interactions.csv.gz",
-      "hash": "8aa801ac3fb49f5f9266844e264335dbd84cc2affda35a3eef11496c8f911508",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\string\\protein_interactions.csv.gz",
+      "hash": "bdf3c6134d3eb864843f2c226aa300e9d2fa0a16dfca7e91e7394ff4b5d429ea",
       "algorithm": "sha256",
       "source": "Mock",
       "size": 180729,
-      "timestamp": "1773477375.4473917",
+      "timestamp": "1773544065.9942408",
       "metadata": {
         "total_edges": 25099,
         "n_proteins": 5000,
@@ -137,12 +137,12 @@
       }
     },
     "mock_gtex_expression": {
-      "path": "data\\raw\\gtex\\gtex_tissue_expression.csv.gz",
-      "hash": "87fe79ab78be1b6c40a781d318c0ede14b111c622f338485c79a66089fe75816",
+      "path": "C:\\All-Code\\Alzheimer's_Research\\alz-gnn-project\\data\\raw\\gtex\\gtex_tissue_expression.csv.gz",
+      "hash": "340f41630666673304cef1d37e5060ee15715806e5b0d20eb04b0e5d8f99f242",
       "algorithm": "sha256",
       "source": "Mock",
       "size": 2350634,
-      "timestamp": "1773477376.178694",
+      "timestamp": "1773544066.5580235",
       "metadata": {
         "n_genes": 5000,
         "n_tissues": 52,

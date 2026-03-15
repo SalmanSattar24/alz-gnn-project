@@ -5,8 +5,8 @@ Main package initialization.
 """
 
 __version__ = "0.1.0"
-__author__ = "Your Name"
-__email__ = "your.email@example.com"
+__author__ = "SalmanSattar24"
+__email__ = ""
 
 from src.utils.logger import get_logger, setup_logger
 

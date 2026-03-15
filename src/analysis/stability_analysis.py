@@ -27,15 +27,10 @@ def stability_analysis(config_path: str = "config.yaml"):
     logger.info(f"Running stability analysis")
     logger.info(f"Output directory: {output_dir}")
 
-    # TODO: Implement stability analysis
-    # - Load trained model and test data
-    # - Perturbation analysis (noise, dropout, edge removal)
-    # - Feature importance stability
-    # - Cross-cohort generalization
-    # - Sensitivity analysis
-    # - Generate stability report and visualizations
-
-    logger.info("Stability analysis complete")
+    raise NotImplementedError(
+        "stability_analysis.py is a CLI stub. "
+        "Run the full implementation via: python -m src.analysis.stability --config config.yaml"
+    )
 
 
 if __name__ == "__main__":
